@@ -1,144 +1,150 @@
 {
-  "name": "hacap",
-  "version": "0.0.1",
-  "repository": "<Add your repository here>",
-  "license": "UNLICENSED",
-  "description": "Hana Academy Cloud Application Programming",
-  "engines": {
-    "node": "14.x"
-  },
-  "dependencies": {
-    "@sap/cds": "^6",
-    "@sap/audit-logging": "^5",
-    "hdb": "^0.19",
-    "@sap-cloud-sdk/http-client": "^2.5",
-    "@sap/xsenv": "^3",
-    "@sap/xssec": "^3",
-    "passport": "^0.4.1",
-
-    "debug": "^4.3",
-    "express": "^4"
-  },
-  "devDependencies": {
-    "sqlite3": "^5.0.2"
-    ,"@sap/ux-specification": "^1.96.4"
-  },
-  "sapux": [
-    "app/fiori"
-  ],
-  "scripts": {
-    "start": "cds run"
-  },
-  "eslintConfig": {
-    "extends": "eslint:recommended",
-    "env": {
-      "es2020": true,
-      "node": true,
-      "jest": true,
-      "mocha": true
+    "name": "hacap",
+    "version": "0.0.1",
+    "repository": "<Add your repository here>",
+    "license": "UNLICENSED",
+    "description": "Hana Academy Cloud Application Programming",
+    "engines": {
+        "node": "14.x"
     },
-    "globals": {
-      "SELECT": true,
-      "INSERT": true,
-      "UPDATE": true,
-      "DELETE": true,
-      "CREATE": true,
-      "DROP": true,
-      "CDL": true,
-      "CQL": true,
-      "CXL": true,
-      "cds": true
+    "dependencies": {
+        "@sap-cloud-sdk/http-client": "^2.5",
+        "@sap/audit-logging": "^5",
+        "@sap/cds": "^6",
+        "@sap/xsenv": "^3",
+        "@sap/xssec": "^3",
+        "debug": "^4.3",
+        "express": "^4",
+        "hdb": "^0.19",
+        "passport": "^0.4.1"
     },
-    "rules": {
-      "no-console": "off",
-      "require-atomic-updates": "off"
-    }
-  },
-  "cds": {
-    "build": {
-      "target": "gen",
-      "tasks": [
-        {
-          "for": "hana",
-          "src": "db",
-          "options": {
-            "model": [
-              "db",
-              "app",
-              "srv"
-            ]
-          }
+    "devDependencies": {
+        "@sap/eslint-plugin-ui5-jsdocs": "^2.0.5",
+        "@sap/ux-specification": "^1.102.2",
+        "@sapui5/ts-types": "^1.92.2",
+        "eslint": "^7.32.0",
+        "sqlite3": "^5.0.2",
+        "rimraf": "^3.0.2"
+    },
+    "sapux": [
+        "app/fiori",
+        "app/hacapsales"
+    ],
+    "scripts": {
+        "start": "cds run",
+        "watch-hacapsales": "cds watch --open hacapsales/webapp/index.html?sap-ui-xx-viewCache=false",
+        "undeploy": "cf undeploy hacap --delete-services --delete-service-keys --delete-service-brokers",
+        "build": "rimraf resources mta_archives && mbt build --mtar archive",
+        "deploy": "cf deploy mta_archives/archive.mtar --retries 1"
+    },
+    "eslintConfig": {
+        "extends": "eslint:recommended",
+        "env": {
+            "es2020": true,
+            "node": true,
+            "jest": true,
+            "mocha": true
         },
-        {
-          "for": "node-cf",
-          "src": "srv",
-          "options": {
-            "model": [
-              "db",
-              "app",
-              "srv"
-            ]
-          }
+        "globals": {
+            "SELECT": true,
+            "INSERT": true,
+            "UPDATE": true,
+            "DELETE": true,
+            "CREATE": true,
+            "DROP": true,
+            "CDL": true,
+            "CQL": true,
+            "CXL": true,
+            "cds": true
+        },
+        "rules": {
+            "no-console": "off",
+            "require-atomic-updates": "off"
         }
-      ]
     },
-    "requires": {
-      "uaa": {
-        "kind": "xsuaa"
-      },
-      "auth": {
-        "[production]": {
-          "strategy": "JWT"
+    "cds": {
+        "build": {
+            "target": "gen",
+            "tasks": [
+                {
+                    "for": "hana",
+                    "src": "db",
+                    "options": {
+                        "model": [
+                            "db",
+                            "app",
+                            "srv"
+                        ]
+                    }
+                },
+                {
+                    "for": "node-cf",
+                    "src": "srv",
+                    "options": {
+                        "model": [
+                            "db",
+                            "app",
+                            "srv"
+                        ]
+                    }
+                }
+            ]
         },
-        "[development]": {
-          "strategy": "mock",
-          "users": {
-            "joe": {
-              "roles": [
-                "Admin",
-                "Viewer"
-              ]
+        "requires": {
+            "uaa": {
+                "kind": "xsuaa"
             },
-            "julie": {
-              "roles": [
-                "Viewer"
-              ]
+            "auth": {
+                "[production]": {
+                    "strategy": "JWT"
+                },
+                "[development]": {
+                    "strategy": "mock",
+                    "users": {
+                        "joe": {
+                            "roles": [
+                                "Admin",
+                                "Viewer"
+                            ]
+                        },
+                        "julie": {
+                            "roles": [
+                                "Viewer"
+                            ]
+                        },
+                        "bob": {
+                            "roles": [
+                                "Viewer"
+                            ]
+                        }
+                    }
+                }
             },
-            "bob": {
-              "roles": [
-                "Viewer"
-              ]
+            "db": {
+                "[production]": {
+                    "kind": "hana-cloud"
+                },
+                "[development]": {
+                    "kind": "sql"
+                },
+                "model": [
+                    "db",
+                    "srv"
+                ]
+            },
+            "NearEarthObjectWebService": {
+                "kind": "rest",
+                "impl": "srv/external/NearEarthObjectWebService.js",
+                "credentials": {
+                    "[production]": {
+                        "destination": "hacap-NASA-api",
+                        "path": "neo/rest/v1"
+                    },
+                    "[development]": {
+                        "url": "https://api.nasa.gov/neo/rest/v1"
+                    }
+                }
             }
-          }
         }
-      }
-      ,
-      "db": {
-        "[production]": {
-          "kind": "hana-cloud"
-        },
-        "[development]": {
-          "kind": "sql"
-        },
-        "model": [
-          "db",
-          "srv"
-        ]
-      }
-        ,
-      "NearEarthObjectWebService": {
-        "kind": "rest",
-        "impl": "srv/external/NearEarthObjectWebService.js",
-        "credentials": {
-          "[production]": {
-            "destination": "hacap-NASA-api",
-            "path": "neo/rest/v1"
-          },
-          "[development]": {
-            "url": "https://api.nasa.gov/neo/rest/v1"
-          }
-        }
-      }
     }
-  }
 }

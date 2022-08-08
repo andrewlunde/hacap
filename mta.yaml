@@ -1,236 +1,195 @@
-_schema-version: '3.2'
+_schema-version: "3.2"
 ID: hacap
 version: 0.0.1
-
+modules:
+- name: hacap-db-deployer
+  type: hdb
+  path: gen/db
+  requires:
+  - name: hacap-uaa
+  - name: hacap-db
+  parameters:
+    buildpack: nodejs_buildpack
+    disk-quota: 1024M
+    memory: 256M
+  build-parameters:
+    ignore:
+    - default-*.json
+    - .env
+    - '*node_modules*'
+- name: hacap-srv
+  type: nodejs
+  path: gen/srv
+  properties:
+    APIKeyNASA: DEMO_KEY
+  requires:
+  - name: hacap-uaa
+  - name: hacap-dest
+  - name: hacap-db
+  provides:
+  - name: srv-api
+    properties:
+      srv-url: ${default-url}
+  parameters:
+    buildpack: nodejs_buildpack
+    disk-quota: 1024M
+    memory: 512M
+  build-parameters:
+    ignore:
+    - default-*.json
+    - .env
+    - '*node_modules*'
+- name: hacap-html5
+  type: html5
+  path: app/html5
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: hacap-fiori
+  type: html5
+  path: app/fiori
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+- name: hacap-ui-deployer
+  type: com.sap.application.content
+  path: .
+  requires:
+  - name: hacap-html5repo
+    parameters:
+      content-target: true
+  build-parameters:
+    build-result: gen/app
+    requires:
+    - artifacts:
+      - html5-content.zip
+      name: hacap-html5
+      target-path: gen/app
+    - artifacts:
+      - fiori-content.zip
+      name: hacap-fiori
+      target-path: gen/app
+    - artifacts:
+      - hacapsales.zip
+      name: hacapsales
+      target-path: gen/app/
+- name: hacap-dest-content
+  type: com.sap.application.content
+  requires:
+  - name: hacap-uaa
+    parameters:
+      service-key:
+        name: hacap-uaa-sk
+  - name: hacap-dest
+    parameters:
+      content-target: true
+  - name: hacap-html5repo
+    parameters:
+      service-key:
+        name: hacap-html5repo-sk
+  - name: srv-api
+  parameters:
+    content:
+      instance:
+        destinations:
+        - Authentication: OAuth2UserTokenExchange
+          Name: hacap-service-hacap-uaa
+          ServiceInstanceName: hacap-uaa
+          ServiceKeyName: hacap-uaa-sk
+          sap.cloud.service: hacap-service
+        - Name: hacap-service-hacap-html5repo
+          ServiceInstanceName: hacap-html5repo
+          ServiceKeyName: hacap-html5repo-sk
+          sap.cloud.service: hacap-service
+        - Authentication: OAuth2UserTokenExchange
+          Description: HACAP - Server Module
+          Name: hacap-srv
+          TokenServiceInstanceName: hacap-uaa
+          TokenServiceKeyName: hacap-uaa-sk
+          URL: ~{srv-api/srv-url}
+          sap.cloud.service: hacap-service
+        existing_destinations_policy: ignore
+  build-parameters:
+    no-source: true
+- name: hacapsales
+  type: html5
+  path: app/hacapsales
+  build-parameters:
+    build-result: dist
+    builder: custom
+    commands:
+    - npm install
+    - npm run build:cf
+    supported-platforms: []
+resources:
+- name: hacap-uaa
+  type: org.cloudfoundry.managed-service
+  parameters:
+    path: ./xs-security.json
+    service: xsuaa
+    service-plan: application
+- name: hacap-dest
+  type: org.cloudfoundry.managed-service
+  parameters:
+    config:
+      HTML5Runtime_enabled: true
+      init_data:
+        instance:
+          destinations:
+          - Authentication: NoAuthentication
+            Description: NASA APIs
+            HTML5.DynamicDestination: true
+            Name: hacap-NASA-api
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://api.nasa.gov
+          - Authentication: NoAuthentication
+            Description: SAPUI5
+            Name: ui5
+            ProxyType: Internet
+            Type: HTTP
+            URL: https://ui5.sap.com
+          - Authentication: NoAuthentication
+            HTML5.DynamicDestination: true
+            HTML5.ForwardAuthToken: true
+            Name: hacap-srv-api
+            ProxyType: Internet
+            Type: HTTP
+            URL: ~{srv-api/srv-url}
+          existing_destinations_policy: ignore
+    service: destination
+    service-plan: lite
+  requires:
+  - name: srv-api
+- name: hacap-html5repo
+  type: org.cloudfoundry.managed-service
+  parameters:
+    service: html5-apps-repo
+    service-plan: app-host
+- name: hacap-db
+  type: com.sap.xs.hdi-container
+  parameters:
+    config:
+      database_id: a992cdc7-4a44-4294-b226-bcdd2df6fbdc
+    service: hana
+    service-plan: hdi-shared
+  properties:
+    hdi-service-name: ${service-name}
 parameters:
-  enable-parallel-deployments: true
   deploy_mode: html5-repo
-
+  enable-parallel-deployments: true
 build-parameters:
   before-all:
-    - builder: custom
-      commands:
-        - npm install --production
-        - npx -p @sap/cds-dk cds build --production
-#        - npx rimraf gen/db/src/gen/data # uncomment this line to prevent loading of initial data which is only relevant for dev/test deployments 
-#        - npx rimraf gen/db/src/gen/csv  # uncomment this line unless db/csv folder has been used for config/control table data which is entirely managed by the developer and never changed by the app
-        - cp -f db/package.jsonx gen/db/package.json
-modules:
-  # ---------------- DATABASE DEPLOYER MODULE ------------------
-  - name: hacap-db-deployer
-  # ------------------------------------------------------------
-  # mbt build ; cf deploy mta_archives/hacap_0.0.1.mtar -m hacap-db-deployer
-  # ------------------------------------------------------------
-    type: hdb
-    path: gen/db
-    build-parameters:
-      ignore:
-        - default-*.json
-        - .env
-        - "*node_modules*"
-    parameters:
-      buildpack: nodejs_buildpack
-      memory: 256M
-      disk-quota: 1024M
-    requires:
-      - name: hacap-uaa
-      - name: hacap-db
-
-  # --------------------- SERVER MODULE ------------------------
-  - name: hacap-srv
-  # ------------------------------------------------------------
-    type: nodejs
-    path: gen/srv
-    build-parameters:
-      ignore:
-        - default-*.json
-        - .env
-        - "*node_modules*"
-    parameters:
-      buildpack: nodejs_buildpack
-      memory: 512M
-      disk-quota: 1024M
-    properties:
-      APIKeyNASA: DEMO_KEY
-    requires:
-      - name: hacap-uaa
-      - name: hacap-dest
-      - name: hacap-db
-    provides:
-      - name: srv-api
-        properties:
-          srv-url: ${default-url}
-
-
-
-
-
-  # ----------- HTML5 APP REPOSITORY APP HTML5 MODULE ----------
-  - name: hacap-html5
-  # ------------------------------------------------------------
-    type: html5
-    path: app/html5
-    build-parameters:
-      build-result: dist
-      builder: custom
-      commands:
-        - npm install
-        - npm run build:cf
-      supported-platforms: []
-
-  # ----------- HTML5 APP REPOSITORY APP FIORI MODULE ----------
-  - name: hacap-fiori
-  # ------------------------------------------------------------
-    type: html5
-    path: app/fiori
-    build-parameters:
-      build-result: dist
-      builder: custom
-      commands:
-        - npm install
-        - npm run build:cf
-      supported-platforms: []
-
-  # ----------- HTML5 APP REPOSITORY DEPLOYER MODULE -----------
-  - name: hacap-ui-deployer
-  # ------------------------------------------------------------
-    type: com.sap.application.content
-    path: .
-    requires:
-      - name: hacap-html5repo
-        parameters:
-          content-target: true
-    build-parameters:
-      build-result: gen/app
-      requires:
-        - artifacts:
-            - html5-content.zip
-          name: hacap-html5
-          target-path: gen/app
-        - artifacts:
-            - fiori-content.zip
-          name: hacap-fiori
-          target-path: gen/app
-
-  # ----- HTML5 APP REPOSITORY DESTINATION CONTENT MODULE ------
-  - name: hacap-dest-content
-  # ------------------------------------------------------------
-    type: com.sap.application.content
-    requires:
-      - name: hacap-uaa
-        parameters:
-          service-key:
-            name: hacap-uaa-sk
-      - name: hacap-dest
-        parameters:
-          content-target: true
-      - name: hacap-html5repo
-        parameters:
-          service-key:
-            name: hacap-html5repo-sk
-      - name: srv-api
-    parameters:
-      content:
-        instance:
-          existing_destinations_policy: ignore
-          destinations:
-            - Name: hacap-service-hacap-uaa
-              ServiceInstanceName: hacap-uaa
-              ServiceKeyName: hacap-uaa-sk
-              Authentication: OAuth2UserTokenExchange
-              sap.cloud.service: hacap-service
-            - Name: hacap-service-hacap-html5repo
-              ServiceInstanceName: hacap-html5repo
-              ServiceKeyName: hacap-html5repo-sk
-              sap.cloud.service: hacap-service
-            - Name: hacap-srv
-              Description: HACAP - Server Module
-              URL: ~{srv-api/srv-url}
-              TokenServiceInstanceName: hacap-uaa
-              TokenServiceKeyName: hacap-uaa-sk
-              Authentication: OAuth2UserTokenExchange
-              sap.cloud.service: hacap-service
-    build-parameters:
-      no-source: true
-
-resources:
-  # ----------------------- UAA SERVICE ------------------------
-  - name: hacap-uaa
-  # ------------------------------------------------------------
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: xsuaa
-      service-plan: application
-      path: ./xs-security.json
-
-  # -------------------- DESTINATION SERVICE -------------------
-  - name: hacap-dest
-  # ------------------------------------------------------------
-    type: org.cloudfoundry.managed-service
-    requires:
-      - name: srv-api
-    parameters:
-      service: destination
-      service-plan: lite
-      config:
-        HTML5Runtime_enabled: true
-        init_data:
-          instance:
-            existing_destinations_policy: ignore
-            destinations:
-              - Name: hacap-NASA-api
-                Description: NASA APIs
-                URL: https://api.nasa.gov
-                Type: HTTP
-                ProxyType: Internet
-                Authentication: NoAuthentication
-                HTML5.DynamicDestination: true
-              - Name: ui5
-                Description: SAPUI5
-                URL: https://ui5.sap.com
-                Type: HTTP
-                ProxyType: Internet
-                Authentication: NoAuthentication
-
-  # ----------- HTML5 APP REPOSITORY HOSTING SERVICE -----------
-  - name: hacap-html5repo
-  # ------------------------------------------------------------
-    type: org.cloudfoundry.managed-service
-    parameters:
-      service: html5-apps-repo
-      service-plan: app-host
-
-
-
-
-
-  # ------------------- HDI CONTAINER SERVICE ------------------
-  - name: hacap-db
-  # ------------------------------------------------------------
-    type: com.sap.xs.hdi-container
-    parameters:
-      service: hana
-      service-plan: hdi-shared
-      # --- If you can perform the following successfully
-      # --- then you don't need the following database_id config
-      # cf create-service hana hdi-shared test-hdi
-      # --- check with this for "create succeeded"
-      # cf service test-hdi | grep status
-      # --- Clean up by deleting the service instance
-      # cf delete-service test-hdi -f
-      # --- otherwise, if you get this error
-      # --- Failed to select a database for instance test-hdi, because of: Multiple databases are available
-      # uncomment the following lines and specify which one you want
-      config:
-        database_id: "a992cdc7-4a44-4294-b226-bcdd2df6fbdc"
-      # --- Build + Deploy HDI container ONLY
-      # mbt build ; cf deploy mta_archives/hacap_0.0.1.mtar -r hacap-db
-      # --- Clean up with
-      # cf undeploy hacap -f --delete-services
-    properties:
-      hdi-service-name: ${service-name}
-
-
-
-
-
+  - builder: custom
+    commands:
+    - npm install --production
+    - npx -p @sap/cds-dk cds build --production
+    - cp -f db/package.jsonx gen/db/package.json

@@ -19,7 +19,8 @@
       config:
         database_id: "a992cdc7-4a44-4294-b226-bcdd2df6fbdc"
       # --- Build + Deploy HDI container ONLY
-      # mbt build ; cf deploy mta_archives/hacap_0.0.1.mtar -r hacap-db
+      # mbt build ; cf deploy mta_archives/hacap_0.0.1.mtar
+       -r hacap-db
       # --- Clean up with
       # cf undeploy hacap -f --delete-services
     properties:
